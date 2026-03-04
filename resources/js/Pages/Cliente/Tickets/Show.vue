@@ -205,6 +205,7 @@ function fmtMoneda(val) {
                     </div>
 
                     <!-- Timeline -->
+ 
                     <div class="p-5 space-y-4 max-h-[450px] overflow-y-auto">
                         <div v-for="s in ticket.seguimientos" :key="s.id"
                              class="flex gap-3">
@@ -235,8 +236,16 @@ function fmtMoneda(val) {
                                     </span>
                                 </div>
                                 <div class="bg-gray-50 rounded-lg px-3 py-2">
-                                    <p class="text-sm text-gray-700">{{ s.contenido }}</p>
-                                </div>
+    <p class="text-sm text-gray-700">{{ s.contenido }}</p>
+</div>
+
+<div v-if="s.foto_evidencia" class="mt-2">
+    <a :href="s.foto_evidencia" target="_blank">
+        <img :src="s.foto_evidencia"
+             class="h-40 rounded-lg border object-cover hover:opacity-90 transition cursor-pointer" />
+    </a>
+    <p class="text-xs text-gray-400 mt-1">📷 Toca para ver completa</p>
+</div>
                             </div>
                         </div>
 

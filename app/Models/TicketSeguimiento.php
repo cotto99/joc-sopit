@@ -9,7 +9,8 @@ class TicketSeguimiento extends Model
     protected $fillable = [
         'ticket_id', 'user_id', 'tipo',
         'contenido', 'estado_anterior',
-        'estado_nuevo', 'visible_cliente'
+        'estado_nuevo', 'visible_cliente',
+        'foto_evidencia',  
     ];
 
     public function ticket()

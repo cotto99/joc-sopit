@@ -11,13 +11,56 @@ const props = defineProps({
 
 // Forms
 const formAsignar    = useForm({ tecnico_id: props.ticket.tecnico_id || '' })
-const formEstado     = useForm({ estado: props.ticket.estado, comentario: '', visible_cliente: true })
-const formComentario = useForm({ contenido: '', visible_cliente: true })
+const formEstado = useForm({
+    estado:          props.ticket.estado,
+    comentario:      '',
+    visible_cliente: true,
+    foto_evidencia:  null,
+})
+const formComentario = useForm({
+    contenido:       '',
+    visible_cliente: true,
+    foto_evidencia:  null,
+})
+const formFactura = useForm({
+    aplica_iva:     false,
+    porcentaje_iva: 12,
+    notas:          '',
+})
+
 const formCargo      = useForm({ descripcion: '', cantidad: 1, precio_unitario: '' })
 
+
+const previewEstado      = ref(null)
+const previewComentario  = ref(null)
+const modalFactura       = ref(false)
 const modalAsignar  = ref(false)
 const modalEstado   = ref(false)
 const modalCargo    = ref(false)
+
+
+function onFotoEstado(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    formEstado.foto_evidencia = file
+    previewEstado.value = URL.createObjectURL(file)
+}
+
+function onFotoComentario(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    formComentario.foto_evidencia = file
+    previewComentario.value = URL.createObjectURL(file)
+}
+function cambiarEstado() {
+    formEstado.post(route('admin.tickets.estado', props.ticket.id), {
+        forceFormData: true,
+        onSuccess: () => {
+            modalEstado.value  = false
+            previewEstado.value = null
+        }
+    })
+}
 
 function asignar() {
     formAsignar.patch(route('admin.tickets.asignar', props.ticket.id), {
@@ -25,15 +68,15 @@ function asignar() {
     })
 }
 
-function cambiarEstado() {
-    formEstado.patch(route('admin.tickets.estado', props.ticket.id), {
-        onSuccess: () => modalEstado.value = false
-    })
-}
+
 
 function enviarComentario() {
     formComentario.post(route('admin.tickets.comentario', props.ticket.id), {
-        onSuccess: () => formComentario.reset()
+        forceFormData: true,
+        onSuccess: () => {
+            formComentario.reset()
+            previewComentario.value = null
+        }
     })
 }
 
@@ -52,8 +95,9 @@ function eliminarCargo(cargoId) {
 }
 
 function generarFactura() {
-    if (confirm('¿Generar factura con los cargos actuales?'))
-        router.post(route('admin.tickets.factura', props.ticket.id), {}, { preserveScroll: true })
+    formFactura.post(route('admin.tickets.factura', props.ticket.id), {
+        onSuccess: () => modalFactura.value = false
+    })
 }
 
 const totalCargos = computed(() =>
@@ -215,27 +259,117 @@ const tipoSeguimientoIcono = {
                     </div>
 
                     <!-- Factura -->
-                    <div class="mt-4">
-                        <div v-if="ticket.factura"
-                             class="bg-green-50 border border-green-200 rounded-lg p-3 text-xs">
-                            <p class="font-bold text-green-700">✅ Factura generada</p>
-                            <p class="text-green-600">{{ ticket.factura.numero }}</p>
-                            <p class="text-green-600 font-bold text-sm mt-1">
-                                Total: {{ fmt(ticket.factura.total) }}
-                            </p>
-                            <span :class="ticket.factura.estado === 'pagada'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-yellow-100 text-yellow-700'"
-                                  class="px-2 py-0.5 rounded-full capitalize">
-                                {{ ticket.factura.estado }}
-                            </span>
-                        </div>
-                        <button v-else-if="ticket.cargos?.length"
-                                @click="generarFactura"
-                                class="w-full mt-2 bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700">
-                            📄 Generar Factura
-                        </button>
+<div class="mt-4">
+    <div v-if="ticket.factura"
+         class="bg-green-50 border border-green-200 rounded-lg p-3 text-xs space-y-1">
+        <p class="font-bold text-green-700">✅ Factura generada</p>
+        <p class="text-green-600 font-mono">{{ ticket.factura.numero }}</p>
+        <div v-if="ticket.factura.aplica_iva"
+             class="text-green-600">
+            <p>Subtotal: {{ fmt(ticket.factura.subtotal) }}</p>
+            <p>IVA ({{ ticket.factura.porcentaje_iva }}%): {{ fmt(ticket.factura.impuesto) }}</p>
+        </div>
+        <p class="font-black text-green-800 text-sm">
+            Total: {{ fmt(ticket.factura.total) }}
+        </p>
+        <span :class="ticket.factura.estado === 'pagada'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-yellow-100 text-yellow-700'"
+              class="px-2 py-0.5 rounded-full capitalize text-xs">
+            {{ ticket.factura.estado }}
+        </span>
+    </div>
+
+    <button v-else-if="ticket.cargos?.length"
+            @click="modalFactura = true"
+            class="w-full mt-2 bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-green-700">
+        📄 Generar Factura
+    </button>
+</div>
+
+<!-- Modal Generar Factura con IVA -->
+<div v-if="modalFactura"
+     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div class="bg-green-600 text-white p-5 rounded-t-xl">
+            <h3 class="font-bold">📄 Generar Factura</h3>
+        </div>
+        <div class="p-5 space-y-4">
+
+            <!-- Subtotal de referencia -->
+            <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Subtotal cargos:</span>
+                    <span class="font-bold">{{ fmt(totalCargos) }}</span>
+                </div>
+            </div>
+
+            <!-- IVA toggle -->
+            <div class="border rounded-xl p-4 space-y-3">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <div class="relative">
+                        <input type="checkbox" v-model="formFactura.aplica_iva" class="sr-only" />
+                        <div :class="formFactura.aplica_iva ? 'bg-green-500' : 'bg-gray-300'"
+                             class="w-10 h-5 rounded-full transition-colors"></div>
+                        <div :class="formFactura.aplica_iva ? 'translate-x-5' : 'translate-x-0'"
+                             class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"></div>
                     </div>
+                    <span class="font-medium text-gray-700">Aplicar IVA</span>
+                </label>
+
+                <div v-if="formFactura.aplica_iva" class="space-y-2">
+                    <label class="block text-sm text-gray-600">Porcentaje de IVA</label>
+                    <div class="relative">
+                        <input v-model="formFactura.porcentaje_iva"
+                               type="number" step="0.1" min="0" max="100"
+                               class="w-full border rounded-lg px-3 py-2 text-sm pr-8 focus:ring-2 focus:ring-green-400" />
+                        <span class="absolute right-3 top-2.5 text-gray-400 text-sm">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview del total -->
+            <div class="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Subtotal:</span>
+                    <span class="font-mono">{{ fmt(totalCargos) }}</span>
+                </div>
+                <div v-if="formFactura.aplica_iva" class="flex justify-between text-green-700">
+                    <span>IVA ({{ formFactura.porcentaje_iva }}%):</span>
+                    <span class="font-mono">
+                        {{ fmt(totalCargos * formFactura.porcentaje_iva / 100) }}
+                    </span>
+                </div>
+                <div class="flex justify-between font-black text-base border-t pt-2">
+                    <span>TOTAL:</span>
+                    <span class="text-green-700">
+                        {{ fmt(formFactura.aplica_iva
+                            ? totalCargos + (totalCargos * formFactura.porcentaje_iva / 100)
+                            : totalCargos) }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Notas -->
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">Notas (opcional)</label>
+                <textarea v-model="formFactura.notas" rows="2"
+                          class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-400"
+                          placeholder="Observaciones de la factura..."></textarea>
+            </div>
+        </div>
+        <div class="p-5 border-t flex gap-3">
+            <button @click="modalFactura = false"
+                    class="flex-1 border border-gray-300 text-gray-600 py-2 rounded-lg text-sm">
+                Cancelar
+            </button>
+            <button @click="generarFactura" :disabled="formFactura.processing"
+                    class="flex-1 bg-green-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50">
+                {{ formFactura.processing ? '⏳ Generando...' : '✅ Confirmar Factura' }}
+            </button>
+        </div>
+    </div>
+</div>
                 </div>
             </div>
 
@@ -288,6 +422,14 @@ const tipoSeguimientoIcono = {
                                 <p class="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
                                     {{ s.contenido }}
                                 </p>
+                               
+<div v-if="s.foto_evidencia" class="mt-2">
+    <a :href="s.foto_evidencia" target="_blank">
+        <img :src="s.foto_evidencia"
+             class="h-40 rounded-lg border object-cover hover:opacity-90 transition cursor-pointer" />
+    </a>
+    <p class="text-xs text-gray-400 mt-1">📷 Ver foto completa</p>
+</div>
                             </div>
                         </div>
                         <div v-if="!ticket.seguimientos?.length"
@@ -297,23 +439,40 @@ const tipoSeguimientoIcono = {
                     </div>
 
                     <!-- Agregar comentario -->
-                    <div class="px-5 py-4 border-t bg-gray-50">
-                        <h4 class="text-sm font-bold text-gray-700 mb-3">💬 Agregar Comentario</h4>
-                        <textarea v-model="formComentario.contenido" rows="3"
-                                  class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 mb-2"
-                                  placeholder="Escribí un comentario o nota de seguimiento..."></textarea>
-                        <div class="flex items-center justify-between">
-                            <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
-                                <input type="checkbox" v-model="formComentario.visible_cliente"
-                                       class="rounded" />
-                                Visible para el cliente
-                            </label>
-                            <button @click="enviarComentario" :disabled="formComentario.processing"
-                                    class="bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-800 disabled:opacity-50">
-                                {{ formComentario.processing ? '...' : 'Enviar' }}
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Agregar comentario con foto -->
+<div class="px-5 py-4 border-t bg-gray-50">
+    <h4 class="text-sm font-bold text-gray-700 mb-3">💬 Agregar Comentario</h4>
+    <textarea v-model="formComentario.contenido" rows="3"
+              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 mb-2"
+              placeholder="Escribí un comentario o nota de seguimiento..."></textarea>
+
+    <!-- Upload foto -->
+    <div class="mb-3">
+        <label class="block text-xs text-gray-500 mb-1">📷 Foto de evidencia (opcional)</label>
+        <input type="file" accept="image/*"
+               @change="onFotoComentario"
+               class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+        <div v-if="previewComentario" class="mt-2">
+            <img :src="previewComentario"
+                 class="h-32 rounded-lg border object-cover" />
+            <button @click="formComentario.foto_evidencia = null; previewComentario = null"
+                    class="text-xs text-red-400 hover:text-red-600 mt-1">
+                ✕ Quitar foto
+            </button>
+        </div>
+    </div>
+
+    <div class="flex items-center justify-between">
+        <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+            <input type="checkbox" v-model="formComentario.visible_cliente" class="rounded" />
+            Visible para el cliente
+        </label>
+        <button @click="enviarComentario" :disabled="formComentario.processing"
+                class="bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-800 disabled:opacity-50">
+            {{ formComentario.processing ? '⏳ Enviando...' : 'Enviar' }}
+        </button>
+    </div>
+</div>
                 </div>
             </div>
         </div>
@@ -351,47 +510,64 @@ const tipoSeguimientoIcono = {
 
         <!-- Modal cambiar estado -->
         <div v-if="modalEstado"
-             class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
-                <div class="bg-indigo-700 text-white p-5 rounded-t-xl">
-                    <h3 class="font-bold">🔄 Cambiar Estado</h3>
-                </div>
-                <div class="p-5 space-y-4">
-                    <div>
-                        <label class="block text-sm text-gray-600 mb-1">Nuevo estado *</label>
-                        <select v-model="formEstado.estado"
-                                class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
-                            <option value="abierto">🔴 Abierto</option>
-                            <option value="asignado">🔵 Asignado</option>
-                            <option value="en_proceso">🟡 En Proceso</option>
-                            <option value="en_espera">🟠 En Espera</option>
-                            <option value="resuelto">🟢 Resuelto</option>
-                            <option value="cerrado">⚫ Cerrado</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-600 mb-1">Comentario</label>
-                        <textarea v-model="formEstado.comentario" rows="3"
-                                  class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400"
-                                  placeholder="Explicá el motivo del cambio..."></textarea>
-                    </div>
-                    <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
-                        <input type="checkbox" v-model="formEstado.visible_cliente" class="rounded" />
-                        Visible para el cliente
-                    </label>
-                </div>
-                <div class="p-5 border-t flex gap-3">
-                    <button @click="modalEstado = false"
-                            class="flex-1 border border-gray-300 text-gray-600 py-2 rounded-lg text-sm">
-                        Cancelar
-                    </button>
-                    <button @click="cambiarEstado" :disabled="formEstado.processing"
-                            class="flex-1 bg-indigo-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-indigo-800 disabled:opacity-50">
-                        Actualizar
+     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="bg-indigo-700 text-white p-5 rounded-t-xl sticky top-0">
+            <h3 class="font-bold">🔄 Cambiar Estado</h3>
+        </div>
+        <div class="p-5 space-y-4">
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">Nuevo estado *</label>
+                <select v-model="formEstado.estado"
+                        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
+                    <option value="abierto">🔴 Abierto</option>
+                    <option value="asignado">🔵 Asignado</option>
+                    <option value="en_proceso">🟡 En Proceso</option>
+                    <option value="en_espera">🟠 En Espera</option>
+                    <option value="resuelto">🟢 Resuelto</option>
+                    <option value="cerrado">⚫ Cerrado</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">Comentario</label>
+                <textarea v-model="formEstado.comentario" rows="3"
+                          class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400"
+                          placeholder="Explicá el motivo del cambio..."></textarea>
+            </div>
+
+            <!-- Foto de evidencia -->
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">📷 Foto de evidencia (opcional)</label>
+                <input type="file" accept="image/*"
+                       @change="onFotoEstado"
+                       class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                <div v-if="previewEstado" class="mt-2">
+                    <img :src="previewEstado"
+                         class="h-32 rounded-lg border object-cover w-full" />
+                    <button @click="formEstado.foto_evidencia = null; previewEstado = null"
+                            class="text-xs text-red-400 hover:text-red-600 mt-1">
+                        ✕ Quitar foto
                     </button>
                 </div>
             </div>
+
+            <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+                <input type="checkbox" v-model="formEstado.visible_cliente" class="rounded" />
+                Visible para el cliente
+            </label>
         </div>
+        <div class="p-5 border-t flex gap-3 sticky bottom-0 bg-white">
+            <button @click="modalEstado = false"
+                    class="flex-1 border border-gray-300 text-gray-600 py-2 rounded-lg text-sm">
+                Cancelar
+            </button>
+            <button @click="cambiarEstado" :disabled="formEstado.processing"
+                    class="flex-1 bg-indigo-700 text-white py-2 rounded-lg text-sm font-bold hover:bg-indigo-800 disabled:opacity-50">
+                {{ formEstado.processing ? '⏳ Guardando...' : 'Actualizar' }}
+            </button>
+        </div>
+    </div>
+</div>
 
         <!-- Modal agregar cargo -->
         <div v-if="modalCargo"

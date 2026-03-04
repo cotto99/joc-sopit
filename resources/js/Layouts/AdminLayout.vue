@@ -27,7 +27,7 @@ function isActive(href) {
 
         <!-- TOPBAR MÓVIL -->
         <header class="lg:hidden bg-indigo-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-lg">
-            <span class="text-lg font-bold">🛠️ JOC-SOPIT</span>
+            <span class="text-lg font-bold">🛠️ CORE-IT2</span>
             <div class="flex items-center gap-3">
                 <Link :href="route('logout')" method="post" as="button" class="text-xs text-indigo-200">Salir</Link>
                 <button @click="sidebarOpen = !sidebarOpen" class="text-2xl">{{ sidebarOpen ? '✕' : '☰' }}</button>
@@ -58,7 +58,7 @@ function isActive(href) {
         <div class="hidden lg:flex min-h-screen">
             <aside class="w-64 bg-indigo-900 text-white flex flex-col sticky top-0 min-h-screen">
                 <div class="p-5 border-b border-indigo-800">
-                    <h1 class="text-xl font-black">🛠️ JOC-SOPIT</h1>
+                    <h1 class="text-xl font-black">🛠️ CORE-IT2</h1>
                     <p class="text-xs text-indigo-300 mt-1">Sistema de Soporte IT</p>
                 </div>
                 <nav class="flex-1 py-4">

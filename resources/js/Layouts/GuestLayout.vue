@@ -1,22 +1,20 @@
 <script setup>
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
-import { Link } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <div
-        class="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0"
-    >
-        <div>
-            <Link href="/">
-                <ApplicationLogo class="h-20 w-20 fill-current text-gray-500" />
-            </Link>
-        </div>
+    <div class="relative min-h-screen bg-[#050c1a] overflow-hidden">
 
-        <div
-            class="mt-6 w-full overflow-hidden bg-white px-6 py-4 shadow-md sm:max-w-md sm:rounded-lg"
-        >
+        <!-- 🔥 Fondo con efecto gradiente elegante -->
+        <div class="absolute inset-0 bg-gradient-to-br from-[#050c1a] via-[#0a1f3d] to-[#061226]"></div>
+
+        <!-- Glow decorativo -->
+        <div class="absolute w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-3xl -top-40 -left-40"></div>
+        <div class="absolute w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-3xl -bottom-40 -right-40"></div>
+
+        <!-- Contenido -->
+        <div class="relative z-10">
             <slot />
         </div>
+
     </div>
 </template>

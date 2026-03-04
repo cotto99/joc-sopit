@@ -40,6 +40,7 @@ Route::prefix('admin')
         ->only(['index', 'show'])
         ->names('admin.facturas');
 
+        Route::resource('admin/facturas', FacturaController::class);
     Route::patch('/facturas/{factura}/estado',
         [FacturaController::class, 'actualizarEstado'])
         ->name('admin.facturas.estado');
@@ -85,13 +86,11 @@ Route::prefix('admin')
         [AdminTicketController::class, 'asignar'])
         ->name('admin.tickets.asignar');
 
-    Route::patch('/tickets/{ticket}/estado',
-        [AdminTicketController::class, 'cambiarEstado'])
-        ->name('admin.tickets.estado');
+        Route::post('/tickets/{ticket}/estado',    [AdminTicketController::class, 'cambiarEstado'])->name('admin.tickets.estado');
 
-    Route::post('/tickets/{ticket}/comentario',
-        [AdminTicketController::class, 'agregarComentario'])
-        ->name('admin.tickets.comentario');
+
+        Route::post('/tickets/{ticket}/comentario',[AdminTicketController::class, 'agregarComentario'])->name('admin.tickets.comentario');
+
 
     Route::post('/tickets/{ticket}/cargo',
         [AdminTicketController::class, 'agregarCargo'])

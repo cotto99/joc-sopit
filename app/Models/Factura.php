@@ -8,8 +8,8 @@ class Factura extends Model
     protected $table = 'facturas';
     protected $fillable = [
         'numero', 'ticket_id', 'empresa_id',
-        'subtotal', 'impuesto', 'total',
-        'estado', 'notas'
+        'subtotal', 'aplica_iva', 'porcentaje_iva',
+        'impuesto', 'total', 'estado', 'notas'
     ];
 
     public function ticket()

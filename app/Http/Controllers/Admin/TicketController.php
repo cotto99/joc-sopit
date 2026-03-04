@@ -6,12 +6,13 @@ use App\Models\Ticket;
 use App\Models\TicketSeguimiento;
 use App\Models\TicketCargo;
 use App\Models\Factura;
-use App\Models\Empresa;
 use App\Models\Tecnico;
 use App\Models\CategoriaSoporte;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+
 
 class TicketController extends Controller
 {
@@ -130,18 +131,24 @@ class TicketController extends Controller
     public function cambiarEstado(Request $request, Ticket $ticket)
     {
         $request->validate([
-            'estado'   => 'required|in:abierto,asignado,en_proceso,en_espera,resuelto,cerrado',
-            'comentario'=> 'nullable|string',
+            'estado'          => 'required|in:abierto,asignado,en_proceso,en_espera,resuelto,cerrado',
+            'comentario'      => 'nullable|string',
             'visible_cliente' => 'boolean',
+            'foto_evidencia'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
-        $estadoAnterior = $ticket->estado;
+        $fotoUrl = null;
+        if ($request->hasFile('foto_evidencia')) {
+            $path = $request->file('foto_evidencia')
+                ->store('evidencias/' . $ticket->id, 's3');
+            $fotoUrl = Storage::disk('s3')->url($path);
+        }
 
+        $estadoAnterior = $ticket->estado;
         $datos = ['estado' => $request->estado];
         if ($request->estado === 'resuelto') {
             $datos['fecha_resolucion'] = now();
         }
-
         $ticket->update($datos);
 
         TicketSeguimiento::create([
@@ -152,6 +159,7 @@ class TicketController extends Controller
             'estado_anterior' => $estadoAnterior,
             'estado_nuevo'    => $request->estado,
             'visible_cliente' => $request->visible_cliente ?? true,
+            'foto_evidencia'  => $fotoUrl,
         ]);
 
         return redirect()->back()->with('success', 'Estado actualizado.');
@@ -162,7 +170,15 @@ class TicketController extends Controller
         $request->validate([
             'contenido'       => 'required|string',
             'visible_cliente' => 'boolean',
+            'foto_evidencia'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
+
+        $fotoUrl = null;
+        if ($request->hasFile('foto_evidencia')) {
+            $path = $request->file('foto_evidencia')
+                ->store('evidencias/' . $ticket->id, 's3');
+            $fotoUrl = Storage::disk('s3')->url($path);
+        }
 
         TicketSeguimiento::create([
             'ticket_id'       => $ticket->id,
@@ -170,10 +186,12 @@ class TicketController extends Controller
             'tipo'            => 'comentario',
             'contenido'       => $request->contenido,
             'visible_cliente' => $request->visible_cliente ?? true,
+            'foto_evidencia'  => $fotoUrl,
         ]);
 
         return redirect()->back()->with('success', 'Comentario agregado.');
     }
+
 
     public function agregarCargo(Request $request, Ticket $ticket)
     {
@@ -210,24 +228,35 @@ class TicketController extends Controller
         return redirect()->back()->with('success', 'Cargo eliminado.');
     }
 
-    public function generarFactura(Ticket $ticket)
+    public function generarFactura(Request $request, Ticket $ticket)
     {
         if ($ticket->factura) {
             return redirect()->back()->withErrors(['error' => 'Ya tiene factura generada.']);
         }
 
-        $subtotal = $ticket->total_cargos;
-        $impuesto = round($subtotal * 0.12, 2);
-        $total    = $subtotal + $impuesto;
+        $request->validate([
+            'aplica_iva'     => 'boolean',
+            'porcentaje_iva' => 'nullable|numeric|min:0|max:100',
+            'notas'          => 'nullable|string',
+        ]);
+
+        $subtotal    = $ticket->total_cargos;
+        $aplicaIva   = $request->boolean('aplica_iva', false);
+        $pctIva      = $aplicaIva ? (float)($request->porcentaje_iva ?? 12) : 0;
+        $impuesto    = $aplicaIva ? round($subtotal * ($pctIva / 100), 2) : 0;
+        $total       = $subtotal + $impuesto;
 
         Factura::create([
-            'numero'     => Factura::generarNumero(),
-            'ticket_id'  => $ticket->id,
-            'empresa_id' => $ticket->empresa_id,
-            'subtotal'   => $subtotal,
-            'impuesto'   => $impuesto,
-            'total'      => $total,
-            'estado'     => 'pendiente',
+            'numero'         => Factura::generarNumero(),
+            'ticket_id'      => $ticket->id,
+            'empresa_id'     => $ticket->empresa_id,
+            'subtotal'       => $subtotal,
+            'aplica_iva'     => $aplicaIva,
+            'porcentaje_iva' => $pctIva,
+            'impuesto'       => $impuesto,
+            'total'          => $total,
+            'estado'         => 'pendiente',
+            'notas'          => $request->notas,
         ]);
 
         return redirect()->back()->with('success', 'Factura generada.');
