@@ -34,6 +34,14 @@ class TicketController extends Controller
             'cargos',
             'factura',
         ]);
+        foreach ($ticket->seguimientos as $seg) {
+            if ($seg->foto_evidencia) {
+                $seg->foto_evidencia = Storage::disk('s3')->temporaryUrl(
+                    $seg->foto_evidencia,
+                    now()->addHour()
+                );
+            }
+        }
         return Inertia::render('Admin/Tickets/Show', [
             'ticket'     => $ticket,
             'tecnicos'   => Tecnico::where('activo', true)->get(),
@@ -140,8 +148,9 @@ class TicketController extends Controller
         $fotoUrl = null;
         if ($request->hasFile('foto_evidencia')) {
             $path = $request->file('foto_evidencia')
-                ->store('evidencias/' . $ticket->id, 's3');
-                $fotoUrl = Storage::disk('s3')->temporaryUrl($path, now()->addHour());        }
+    ->store('evidencias/' . $ticket->id, 's3');
+
+$fotoUrl = $path;  }
 
         $estadoAnterior = $ticket->estado;
         $datos = ['estado' => $request->estado];
@@ -175,8 +184,9 @@ class TicketController extends Controller
         $fotoUrl = null;
         if ($request->hasFile('foto_evidencia')) {
             $path = $request->file('foto_evidencia')
-                ->store('evidencias/' . $ticket->id, 's3');
-                $fotoUrl = Storage::disk('s3')->temporaryUrl($path, now()->addHour());        }
+            ->store('evidencias/' . $ticket->id, 's3');
+        
+        $fotoUrl = $path;      }
 
         TicketSeguimiento::create([
             'ticket_id'       => $ticket->id,
