@@ -141,8 +141,7 @@ class TicketController extends Controller
         if ($request->hasFile('foto_evidencia')) {
             $path = $request->file('foto_evidencia')
                 ->store('evidencias/' . $ticket->id, 's3');
-            $fotoUrl = Storage::disk('s3')->url($path);
-        }
+                $fotoUrl = Storage::disk('s3')->temporaryUrl($path, now()->addHour());        }
 
         $estadoAnterior = $ticket->estado;
         $datos = ['estado' => $request->estado];
@@ -177,8 +176,7 @@ class TicketController extends Controller
         if ($request->hasFile('foto_evidencia')) {
             $path = $request->file('foto_evidencia')
                 ->store('evidencias/' . $ticket->id, 's3');
-            $fotoUrl = Storage::disk('s3')->url($path);
-        }
+                $fotoUrl = Storage::disk('s3')->temporaryUrl($path, now()->addHour());        }
 
         TicketSeguimiento::create([
             'ticket_id'       => $ticket->id,
