@@ -39,6 +39,14 @@ class TicketController extends Controller
             'factura',
         ]);
 
+        foreach ($ticket->seguimientos as $seg) {
+            if ($seg->foto_evidencia) {
+                $seg->foto_evidencia = \Storage::disk('s3')->temporaryUrl(
+                    $seg->foto_evidencia,
+                    now()->addHour()
+                );
+            }
+        }
         return Inertia::render('Cliente/Tickets/Show', [
             'ticket' => $ticket,
         ]);
